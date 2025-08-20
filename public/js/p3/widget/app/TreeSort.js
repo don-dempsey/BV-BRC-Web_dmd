@@ -761,6 +761,13 @@ define([
          // Get the reference segment for comparison.
          const refSegment = this.refSegmentEl.get("value");
 
+         // Was this segment found in the FASTA input file?
+         if (Array.isArray(this.fastaValidation.segments) && !this.fastaValidation.segments.includes(refSegment)) {
+            result.isValid = false;
+            result.errorMessage = `Segment ${refSegment} was not found in the FASTA input file`;
+            return result;
+         }
+
          // Make sure the segment selected as the reference segment is checked.
          this.segmentCheckboxes.forEach(checkbox_ => {
             if (!checkbox_.get("checked")) {
@@ -949,6 +956,27 @@ define([
          this.validationContext.unprocessed = this.validationContext.controlCount;
       },
 
+      // Update the list of selectable ref segments.
+      updateSegmentOptions: function () {
+
+         if (!Array.isArray(this.fastaValidation.segments) || this.fastaValidation.segments.length < 1) { return; }
+
+         const segments = SegmentedViruses[this.virusTaxon].segments;
+         if (!segments) { throw new Error("Invalid virus segment data"); }
+
+         // Clear all options
+         this.refSegmentEl.removeOption();
+
+         segments.forEach((segment_) => {
+            if (this.fastaValidation.segments.includes(segment_.name)) {
+               let label = segment_.name;
+               if (segment_.isDefault) { label += " (default) "; }
+
+               this.refSegmentEl.addOption({value: segment_.name, label: label});
+            }
+         })
+      },
+
       // If we're suspending validation, update the number of unprocessed controls and the "is suspended" flag.
       updateValidationContext() {
 
@@ -1084,6 +1112,21 @@ define([
          }
 
          this.fastaValidation.isValid = isValid;
+
+         // Disable checkboxes for segments not found in the FASTA file.
+         this.segmentCheckboxes.forEach(checkbox_ => {
+            const segment = checkbox_.get("name");
+            if (!this.fastaValidation.segments.includes(segment)) {
+               checkbox_.set("checked", false);
+               checkbox_.set("disabled", true);
+            }
+         })
+
+         // Update the list of selectable ref segments.
+         this.updateSegmentOptions();
+
+         // Validate the ref segment.
+         this.handleSegmentChange();
 
          return isValid;
       }
